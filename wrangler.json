@@ -1,0 +1,15 @@
+{
+  "name": "sctwms-app",
+  "compatibility_date": "2026-01-03",
+  "assets": {
+    "directory": "./dist"
+  }
+}
+"usage_model": "bundled",
+"env": {
+  "staging": {
+    "assets": {
+      "directory": "./dist"
+    }
+  }
+}
