@@ -6,13 +6,3 @@
   },
   "usage_model": "bundled"
 }
-"env": {
-  "staging": {
-    "assets": {
-      "directory": "./dist"
-    }
-  }
-}
-git add wrangler.json
-git commit -m "Add wrangler config for Cloudflare deploy"
-git push origin main
