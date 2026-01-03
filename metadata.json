@@ -1,0 +1,8 @@
+{
+  "name": "SCTWMS - Smart City Technologies Work Management System",
+  "description": "A comprehensive local-host work management system for managing client work orders, technician assignments, service reports, and automated invoicing for security and access systems.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
