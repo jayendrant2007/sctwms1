@@ -49,8 +49,7 @@ export const polishServiceReport = async (findings: string, actions: string) => 
       }
     });
 
-    const text = response?.text ?? '{}';
-    return JSON.parse(text);
+    return JSON.parse(response.text);
   } catch (error) {
     console.error("Gemini Polish Error:", error);
     return { polishedFindings: findings, polishedActions: actions };
@@ -90,8 +89,7 @@ export const generateInvoiceSummary = async (serviceReportContent: string) => {
         }
       }
     });
-    const text = response?.text ?? '[]';
-    return JSON.parse(text);
+    return JSON.parse(response.text);
   } catch (error) {
     console.error("Gemini Invoice Suggestion Error:", error);
     return [{ description: "General technical service fee", amount: 150 }];

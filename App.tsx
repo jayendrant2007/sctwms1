@@ -22,18 +22,18 @@ import {
   Settings as SettingsIcon,
   X
 } from 'lucide-react';
-import Dashboard from './pages/Dashboard';
-import WorkOrders from './pages/WorkOrders';
-import ServiceReports from './pages/ServiceReports';
-import Invoices from './pages/Invoices';
-import Admin from './pages/Admin';
-import Clients from './pages/Clients';
-import Maintenance from './pages/Maintenance';
-import SiteHandoverPage from './pages/SiteHandover';
-import Login from './pages/Login';
-import ClientPortal from './pages/ClientPortal';
-import PublicClientPortal from './pages/PublicClientPortal';
-import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard.tsx';
+import WorkOrders from './pages/WorkOrders.tsx';
+import ServiceReports from './pages/ServiceReports.tsx';
+import Invoices from './pages/Invoices.tsx';
+import Admin from './pages/Admin.tsx';
+import Clients from './pages/Clients.tsx';
+import Maintenance from './pages/Maintenance.tsx';
+import SiteHandoverPage from './pages/SiteHandover.tsx';
+import Login from './pages/Login.tsx';
+import ClientPortal from './pages/ClientPortal.tsx';
+import PublicClientPortal from './pages/PublicClientPortal.tsx';
+import Profile from './pages/Profile.tsx';
 import { 
   WorkOrder, 
   WorkOrderStatus, 
@@ -49,8 +49,8 @@ import {
   SiteHandover,
   UserRole,
   AuthUser
-} from './types';
-import { COMPANY_INFO as INITIAL_COMPANY_INFO } from './constants';
+} from './types.ts';
+import { COMPANY_INFO as INITIAL_COMPANY_INFO } from './constants.tsx';
 
 const SidebarLink = ({ to, icon: Icon, label, active, onClick }: { to: string, icon: any, label: string, active: boolean, onClick?: () => void }) => (
   <Link 
@@ -90,6 +90,12 @@ const App: React.FC = () => {
   // State with LocalStorage Initialization
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => getSavedData('sct_company_info', INITIAL_COMPANY_INFO));
   
+  // Persisted Admin Credentials
+  const [adminCredentials, setAdminCredentials] = useState(() => getSavedData('sct_admin_credentials', {
+    email: 'admin@smartcitytechnologies.com.sg',
+    password: 'admin123'
+  }));
+
   const [clients, setClients] = useState<Client[]>(() => getSavedData('sct_clients', [
     {
       id: 'C1',
@@ -107,14 +113,14 @@ const App: React.FC = () => {
     },
     {
       id: 'C2',
-      name: 'Golden Sheild Security Services pte ltd',
-      address: '20 Sin Ming Lane,04-67 Singapore 573968',
-      phone: '8021 0471',
-      email: 'Info@golden-shield.com.sg',
+      name: 'Capitaland Facilities',
+      address: '168 Robinson Rd, Singapore 068912',
+      phone: '6713 2888',
+      email: 'facilities@capitaland.com',
       password: 'password123',
-      contactPerson: 'Ms.Andrew',
-      industry: 'Security Manpower Agency',
-      uen: '201914569G',
+      contactPerson: 'Mr. Tan',
+      industry: 'Real Estate / Facilities',
+      uen: '198900036N',
       gstRegistered: true,
       createdAt: new Date('2024-02-10').toISOString(),
       role: UserRole.CLIENT
@@ -122,8 +128,9 @@ const App: React.FC = () => {
   ]));
 
   const [technicians, setTechnicians] = useState<Technician[]>(() => getSavedData('sct_technicians', [
-    { id: 'T1', name: 'Jay', phone: '86693833', email: 'jay@smartcitytechnologies.com.sg', password: 'password123', specialty: JobScope.CCTV, status: 'Available', role: UserRole.TECHNICIAN },
-    { id: 'T2', name: 'Bala', phone: '98918335', email: 'bala.lim@smartcitytechnologies.com.sg', password: 'password123', specialty: JobScope.CARD_ACCESS, status: 'Available', role: UserRole.TECHNICIAN },
+    { id: 'T1', name: 'Michael Tan', phone: '81234567', email: 'michael.tan@smartcitytechnologies.com.sg', password: 'password123', specialty: JobScope.CCTV, status: 'Available', role: UserRole.TECHNICIAN },
+    { id: 'T2', name: 'Jay', phone: '86693833', email: 'jay@smartcitytechnologies.com.sg', password: 'password123', specialty: JobScope.CARD_ACCESS, status: 'Available', role: UserRole.TECHNICIAN },
+    { id: 'T3', name: 'Bala', phone: '98918335', email: 'bala.lim@smartcitytechnologies.com.sg', password: 'password123', specialty: JobScope.CARD_ACCESS, status: 'Available', role: UserRole.TECHNICIAN },
   ]));
   
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>(() => getSavedData('sct_work_orders', [
@@ -133,7 +140,7 @@ const App: React.FC = () => {
       clientName: "Securistate Pte Ltd",
       clientAddress: "20 Sin Ming Lane,05-66 Singapore 573968",
       clientContact: "66845650",
-      clientEmail: "Info@golden-shield.com.sg",
+      clientEmail: "info@securistate.com",
       jobScope: JobScope.CCTV,
       priority: WorkOrderPriority.STANDARD,
       description: "Intermittent flickering on camera 04 and 09 at Basement 2 loading bay.",
@@ -151,6 +158,7 @@ const App: React.FC = () => {
 
   // Sync state to LocalStorage whenever changes occur
   useEffect(() => { localStorage.setItem('sct_company_info', JSON.stringify(companyInfo)); }, [companyInfo]);
+  useEffect(() => { localStorage.setItem('sct_admin_credentials', JSON.stringify(adminCredentials)); }, [adminCredentials]);
   useEffect(() => { localStorage.setItem('sct_clients', JSON.stringify(clients)); }, [clients]);
   useEffect(() => { localStorage.setItem('sct_technicians', JSON.stringify(technicians)); }, [technicians]);
   useEffect(() => { localStorage.setItem('sct_work_orders', JSON.stringify(workOrders)); }, [workOrders]);
@@ -165,11 +173,46 @@ const App: React.FC = () => {
   };
 
   const handleUpdateUserPassword = (userId: string, role: UserRole, newPassword: string) => {
-    if (role === UserRole.TECHNICIAN) {
+    if (role === UserRole.ADMIN) {
+      setAdminCredentials(prev => ({ ...prev, password: newPassword }));
+    } else if (role === UserRole.TECHNICIAN) {
       setTechnicians(prev => prev.map(t => t.id === userId ? { ...t, password: newPassword } : t));
     } else if (role === UserRole.CLIENT) {
       setClients(prev => prev.map(c => c.id === userId ? { ...c, password: newPassword } : c));
     }
+  };
+
+  // Improved password reset by email (for Login page)
+  const handleResetPasswordByEmail = (email: string, newPassword: string): boolean => {
+    if (!email) return false;
+    const searchEmail = email.trim().toLowerCase();
+    let found = false;
+
+    // 1. Check Admin Priority
+    if (searchEmail === adminCredentials.email.toLowerCase()) {
+      setAdminCredentials(prev => ({ ...prev, password: newPassword }));
+      found = true;
+    } 
+    
+    // 2. Check Technicians
+    if (!found) {
+      const tech = technicians.find(t => t.email.toLowerCase() === searchEmail);
+      if (tech) {
+        setTechnicians(prev => prev.map(t => t.email.toLowerCase() === searchEmail ? { ...t, password: newPassword } : t));
+        found = true;
+      }
+    }
+
+    // 3. Check Clients
+    if (!found) {
+      const client = clients.find(c => c.email.toLowerCase() === searchEmail);
+      if (client) {
+        setClients(prev => prev.map(c => c.email.toLowerCase() === searchEmail ? { ...c, password: newPassword } : c));
+        found = true;
+      }
+    }
+
+    return found;
   };
 
   return (
@@ -180,7 +223,13 @@ const App: React.FC = () => {
         <Route path="/*" element={
           !authUser ? (
             <div className="relative">
-              <Login onLogin={setAuthUser} technicians={technicians} clients={clients} />
+              <Login 
+                onLogin={setAuthUser} 
+                technicians={technicians} 
+                clients={clients} 
+                adminCredentials={adminCredentials}
+                onResetPassword={handleResetPasswordByEmail}
+              />
               <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
                 <Link to="/support" className="flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/20 transition-all font-bold text-sm shadow-2xl">
                   <LifeBuoy size={18} className="text-blue-400" />

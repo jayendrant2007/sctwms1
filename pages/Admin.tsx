@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Technician, CompanyInfo, JobScope, UserRole, Client } from '../types';
 import { JOB_SCOPES } from '../constants';
@@ -30,7 +29,10 @@ import {
   Loader2,
   Edit3,
   UserCog,
-  Briefcase
+  Briefcase,
+  UserPlus,
+  ShieldAlert,
+  Search
 } from 'lucide-react';
 
 interface AdminProps {
@@ -44,18 +46,19 @@ interface AdminProps {
 
 const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, setClients, companyInfo, setCompanyInfo }) => {
   const [activeTab, setActiveTab] = useState<'TECH' | 'CLIENT' | 'COMPANY'>('TECH');
-  const [showAddTech, setShowAddTech] = useState(false);
+  const [showManageTechModal, setShowManageTechModal] = useState(false);
+  const [editingTech, setEditingTech] = useState<Technician | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [editingTechId, setEditingTechId] = useState<string | null>(null);
-  const [editingClientId, setEditingClientId] = useState<string | null>(null);
-  const [particularsTech, setParticularsTech] = useState<Technician | null>(null);
   const [particularsClient, setParticularsClient] = useState<Client | null>(null);
+  const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
-  const [copied, setCopied] = useState(false);
+  
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  
-  const [newTech, setNewTech] = useState<Partial<Technician>>({
+  const [copied, setCopied] = useState(false);
+
+  // Form state for adding/editing technicians
+  const [techForm, setTechForm] = useState<Partial<Technician>>({
     name: '',
     phone: '',
     email: '',
@@ -64,59 +67,57 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
     status: 'Available'
   });
 
-  const handleAddTech = (e: React.FormEvent) => {
+  const openAddTech = () => {
+    setEditingTech(null);
+    setTechForm({
+      name: '',
+      phone: '',
+      email: '',
+      password: '',
+      specialty: JobScope.CCTV,
+      status: 'Available'
+    });
+    setShowManageTechModal(true);
+  };
+
+  const openEditTech = (tech: Technician) => {
+    setEditingTech(tech);
+    setTechForm({ ...tech });
+    setShowManageTechModal(true);
+  };
+
+  const handleSaveTech = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTech.name || !newTech.phone || !newTech.email || !newTech.password) {
-      alert("Please fill in all account credentials.");
+    if (!techForm.name || !techForm.email || !techForm.password) {
+      alert("Required fields missing (Name, Email, Password).");
       return;
     }
-    
-    const tech: Technician = {
-      id: `T${Date.now()}`,
-      name: newTech.name!,
-      phone: newTech.phone!,
-      email: newTech.email!,
-      password: newTech.password!,
-      specialty: newTech.specialty as JobScope,
-      status: 'Available',
-      role: UserRole.TECHNICIAN
-    };
-    
-    setTechnicians([...technicians, tech]);
-    setShowAddTech(false);
-    setNewTech({ name: '', phone: '', email: '', password: '', specialty: JobScope.CCTV });
-    alert("New technician account successfully provisioned and saved.");
-  };
 
-  const handleResetPassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (activeTab === 'TECH' && editingTechId) {
-       setTechnicians(prev => prev.map(t => t.id === editingTechId ? { ...t, password: newPassword } : t));
-       alert("Technician password has been successfully reset and saved.");
-       setEditingTechId(null);
-    } else if (activeTab === 'CLIENT' && editingClientId) {
-       setClients(prev => prev.map(c => c.id === editingClientId ? { ...c, password: newPassword } : c));
-       alert("Client portal password has been successfully reset and saved.");
-       setEditingClientId(null);
+    if (editingTech) {
+      // Update existing
+      setTechnicians(prev => prev.map(t => t.id === editingTech.id ? { ...t, ...techForm } as Technician : t));
+      alert(`Technician ${techForm.name} updated successfully.`);
+    } else {
+      // Create new
+      const newStaff: Technician = {
+        id: `T${Date.now()}`,
+        name: techForm.name!,
+        phone: techForm.phone || '',
+        email: techForm.email!,
+        password: techForm.password!,
+        specialty: (techForm.specialty as JobScope) || JobScope.CCTV,
+        status: 'Available',
+        role: UserRole.TECHNICIAN
+      };
+      setTechnicians(prev => [...prev, newStaff]);
+      alert(`New technician ${techForm.name} provisioned.`);
     }
-    setNewPassword('');
-  };
 
-  const handleSaveParticulars = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (particularsTech) {
-      setTechnicians(prev => prev.map(t => t.id === particularsTech.id ? particularsTech : t));
-      setParticularsTech(null);
-      alert("Staff particulars updated and saved successfully.");
-    } else if (particularsClient) {
-      setClients(prev => prev.map(c => c.id === particularsClient.id ? particularsClient : c));
-      setParticularsClient(null);
-      alert("Client record updated and saved successfully.");
-    }
+    setShowManageTechModal(false);
   };
 
   const removeTech = (id: string) => {
-    if (confirm('Are you sure you want to remove this technician account? All tracking data for this staff will be archived.')) {
+    if (confirm('Are you sure you want to PERMANENTLY remove this technician account? Access will be revoked immediately.')) {
       setTechnicians(prev => prev.filter(t => t.id !== id));
     }
   };
@@ -127,7 +128,6 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
 
   const handleSaveCompanyInfo = () => {
     setIsSavingInfo(true);
-    // Simulate commit to central ledger
     setTimeout(() => {
       setIsSavingInfo(false);
       setSaveSuccess(true);
@@ -145,165 +145,123 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
 
   const inviteToWhatsApp = (tech: Technician) => {
     if (!companyInfo.whatsappGroupLink) {
-      alert("Please set up the WhatsApp Group Link in Company Profile first.");
+      alert("Configure WhatsApp Group Link in Company Profile first.");
       return;
     }
-    const message = encodeURIComponent(`Hi ${tech.name}, welcome to SMART CITY TECHNOLOGIES. Please join our technician work group here: ${companyInfo.whatsappGroupLink}`);
+    const message = encodeURIComponent(`Hi ${tech.name}, join the SCT work group: ${companyInfo.whatsappGroupLink}`);
     window.open(`https://wa.me/${tech.phone.replace(/\s+/g, '')}?text=${message}`, '_blank');
   };
 
   return (
-    <div className="space-y-6 pb-12">
-      <header>
-        <h2 className="text-2xl font-black text-slate-900 tracking-tight">System Administration</h2>
-        <p className="text-slate-500 font-medium">Provision accounts, manage credentials, and configure communication hubs</p>
+    <div className="space-y-6 pb-12 animate-in fade-in duration-500">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">System Command Hub</h2>
+          <p className="text-slate-500 font-medium">Manage personnel, clients, and corporate infrastructure</p>
+        </div>
+        <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm shrink-0">
+          <button 
+            onClick={() => setActiveTab('TECH')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'TECH' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Users size={16} /> Staff Directory
+          </button>
+          <button 
+            onClick={() => setActiveTab('CLIENT')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'CLIENT' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Building2 size={16} /> Clients
+          </button>
+          <button 
+            onClick={() => setActiveTab('COMPANY')}
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === 'COMPANY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <ShieldCheck size={16} /> Business Profile
+          </button>
+        </div>
       </header>
 
-      <div className="flex flex-wrap bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit max-w-full">
-        <button 
-          onClick={() => setActiveTab('TECH')}
-          className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            activeTab === 'TECH' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <Users size={18} />
-          Staff
-        </button>
-        <button 
-          onClick={() => setActiveTab('CLIENT')}
-          className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            activeTab === 'CLIENT' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <Building2 size={18} />
-          Clients
-        </button>
-        <button 
-          onClick={() => setActiveTab('COMPANY')}
-          className={`flex items-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all ${
-            activeTab === 'COMPANY' ? 'bg-blue-600 text-white shadow-lg shadow-blue-100' : 'text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <ShieldCheck size={18} />
-          Business
-        </button>
-      </div>
-
-      {activeTab === 'TECH' ? (
-        <div className="space-y-4 animate-in fade-in duration-300">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+      {activeTab === 'TECH' && (
+        <div className="space-y-4 animate-in slide-in-from-right-4">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm">
             <div>
-              <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-xs">
-                Active Staff Directory
-              </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Authorized personnel with system access</p>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Technician Node</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Authorized field engineers</p>
             </div>
             <button 
-              onClick={() => setShowAddTech(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-900 text-white rounded-2xl hover:bg-slate-800 transition-all text-xs font-black uppercase tracking-widest shadow-xl shadow-slate-200"
+              onClick={openAddTech}
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-100"
             >
-              <Plus size={16} />
-              Provision Account
+              <UserPlus size={18} /> Provision New Account
             </button>
           </div>
 
-          <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                    <th className="px-6 sm:px-8 py-5">Identity</th>
-                    <th className="px-6 sm:px-8 py-5 hidden md:table-cell">Contact & Specialty</th>
-                    <th className="px-6 sm:px-8 py-5 hidden lg:table-cell">Group Status</th>
-                    <th className="px-6 sm:px-8 py-5">Current Status</th>
-                    <th className="px-6 sm:px-8 py-5 text-right">Actions</th>
+                  <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                    <th className="px-8 py-6">Staff Identity</th>
+                    <th className="px-8 py-6">Credentials & Role</th>
+                    <th className="px-8 py-6">Deployment Status</th>
+                    <th className="px-8 py-6 text-right pr-12">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {technicians.map(tech => (
-                    <tr key={tech.id} className="hover:bg-slate-50/30 group transition-colors">
-                      <td className="px-6 sm:px-8 py-5">
+                    <tr key={tech.id} className="hover:bg-slate-50/50 group transition-colors">
+                      <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-lg uppercase shadow-inner shrink-0">
+                          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all">
                             {tech.name.charAt(0)}
                           </div>
-                          <div className="min-w-0">
-                            <span className="block text-sm font-black text-slate-800 leading-tight truncate">{tech.name}</span>
-                            <span className="block text-[10px] text-slate-400 font-medium mt-1 lowercase truncate">{tech.email}</span>
+                          <div>
+                            <p className="text-sm font-black text-slate-900 leading-tight">{tech.name}</p>
+                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-1">{tech.specialty}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 sm:px-8 py-5 hidden md:table-cell">
-                         <div className="space-y-1.5">
-                           <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-                             <Phone size={12} className="text-slate-300 shrink-0" />
-                             {tech.phone}
-                           </div>
-                           <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 rounded text-[9px] font-black text-slate-500 uppercase tracking-tighter whitespace-nowrap">
-                             {tech.specialty}
-                           </div>
-                         </div>
+                      <td className="px-8 py-6">
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-700 flex items-center gap-2"><Mail size={12} className="text-slate-300" /> {tech.email}</p>
+                          <p className="text-xs font-bold text-slate-700 flex items-center gap-2"><Phone size={12} className="text-slate-300" /> {tech.phone}</p>
+                        </div>
                       </td>
-                      <td className="px-6 sm:px-8 py-5 hidden lg:table-cell">
-                         <button 
-                          onClick={() => inviteToWhatsApp(tech)}
-                          className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100 shadow-sm whitespace-nowrap"
-                         >
-                           <MessageSquare size={14} />
-                           Invite to Group
-                         </button>
-                      </td>
-                      <td className="px-6 sm:px-8 py-5">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-2 h-2 rounded-full shrink-0 transition-colors hidden sm:block ${
-                            tech.status === 'Available' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
-                            tech.status === 'On Site' ? 'bg-blue-500 animate-pulse shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 
-                            'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]'
+                      <td className="px-8 py-6">
+                        <div className="flex items-center gap-4">
+                          <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${
+                            tech.status === 'Available' ? 'bg-emerald-500 animate-pulse' : 
+                            tech.status === 'On Site' ? 'bg-blue-500' : 'bg-amber-500'
                           }`} />
-                          <div className="relative inline-block w-full max-w-[140px]">
+                          <div className="relative">
                             <select 
                               value={tech.status}
                               onChange={(e) => updateTechStatus(tech.id, e.target.value as Technician['status'])}
-                              className={`appearance-none w-full text-[10px] font-black uppercase px-2 sm:px-4 py-2 sm:py-2.5 rounded-xl outline-none cursor-pointer transition-all border-2 pr-8 sm:pr-10 shadow-sm ${
-                                tech.status === 'Available' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                                tech.status === 'On Site' ? 'bg-blue-50 text-blue-700 border-blue-200' : 
-                                tech.status === 'Away' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                'bg-slate-50 text-slate-600 border-slate-200'
+                              className={`appearance-none text-[10px] font-black uppercase tracking-widest pl-3 pr-8 py-1.5 rounded-xl border-2 outline-none transition-all cursor-pointer ${
+                                tech.status === 'Available' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
+                                tech.status === 'On Site' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                'bg-amber-50 text-amber-700 border-amber-100'
                               }`}
                             >
                               <option value="Available">Available</option>
                               <option value="On Site">On Site</option>
                               <option value="Away">Away</option>
                             </select>
-                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
-                              <ChevronDown size={14} />
-                            </div>
+                            <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none opacity-40" />
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 sm:px-8 py-5 text-right">
-                        <div className="flex items-center justify-end gap-1 sm:gap-2">
-                          <button 
-                            onClick={() => setParticularsTech(tech)}
-                            className="p-2 sm:p-3 text-slate-300 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-all"
-                            title="Edit Particulars"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => setEditingTechId(tech.id)}
-                            className="p-2 sm:p-3 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                            title="Reset Password"
-                          >
-                            <Key size={16} />
-                          </button>
-                          <button 
-                            onClick={() => removeTech(tech.id)}
-                            className="p-2 sm:p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-                            title="Remove Account"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                      <td className="px-8 py-6 text-right pr-10">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => inviteToWhatsApp(tech)} className="p-2.5 text-emerald-500 hover:bg-emerald-50 rounded-xl" title="WhatsApp Invite"><MessageSquare size={18} /></button>
+                          <button onClick={() => openEditTech(tech)} className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl" title="Manage Account"><Edit3 size={18} /></button>
+                          <button onClick={() => removeTech(tech.id)} className="p-2.5 text-red-500 hover:bg-red-50 rounded-xl" title="Revoke Access"><Trash2 size={18} /></button>
                         </div>
                       </td>
                     </tr>
@@ -313,438 +271,237 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
             </div>
           </div>
         </div>
-      ) : activeTab === 'CLIENT' ? (
-        <div className="space-y-4 animate-in fade-in duration-300">
-           <div className="flex justify-between items-center bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+      )}
+
+      {activeTab === 'CLIENT' && (
+        <div className="space-y-4 animate-in slide-in-from-right-4">
+          <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm flex items-center justify-between">
             <div>
-              <h3 className="font-black text-slate-800 flex items-center gap-2 uppercase tracking-widest text-xs">
-                Corporate Access Control
-              </h3>
-              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Manage portal credentials for existing clients</p>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Corporate Client Matrix</h3>
+              <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Portal access for building management</p>
             </div>
           </div>
-
-          <div className="bg-white rounded-[1.5rem] sm:rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
+          <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
+             <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-slate-50/50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
-                    <th className="px-6 sm:px-8 py-5">Corporate Entity</th>
-                    <th className="px-6 sm:px-8 py-5 hidden sm:table-cell">Login ID (Email)</th>
-                    <th className="px-6 sm:px-8 py-5 hidden md:table-cell">Contact Node</th>
-                    <th className="px-6 sm:px-8 py-5 text-right">Actions</th>
+                  <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+                    <th className="px-8 py-6">Entity</th>
+                    <th className="px-8 py-6">Login Node</th>
+                    <th className="px-8 py-6">Contact Node</th>
+                    <th className="px-8 py-6 text-right pr-12">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {clients.map(client => (
-                    <tr key={client.id} className="hover:bg-slate-50/30 group transition-colors">
-                      <td className="px-6 sm:px-8 py-5">
+                    <tr key={client.id} className="hover:bg-slate-50/50 group transition-colors">
+                      <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-lg uppercase shadow-inner shrink-0">
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xl">
                             {client.name.charAt(0)}
                           </div>
-                          <div className="min-w-0">
-                            <span className="block text-sm font-black text-slate-800 leading-tight truncate">{client.name}</span>
-                            <span className="block text-[10px] text-slate-400 font-medium mt-1 uppercase tracking-tighter truncate">Acc: {client.id}</span>
+                          <div>
+                            <p className="text-sm font-black text-slate-900 leading-tight">{client.name}</p>
+                            <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter mt-1">ID: {client.id}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 sm:px-8 py-5 hidden sm:table-cell">
-                         <div className="flex items-center gap-2 text-sm font-bold text-blue-600 truncate">
-                           <Mail size={14} className="text-blue-300 shrink-0" />
-                           {client.email}
-                         </div>
+                      <td className="px-8 py-6"><span className="text-xs font-bold text-blue-600">{client.email}</span></td>
+                      <td className="px-8 py-6">
+                        <p className="text-xs font-black text-slate-700">{client.contactPerson}</p>
+                        <p className="text-[10px] text-slate-400 font-bold">{client.phone}</p>
                       </td>
-                      <td className="px-6 sm:px-8 py-5 hidden md:table-cell">
-                         <div className="space-y-1">
-                           <span className="block text-xs font-black text-slate-700 uppercase truncate">{client.contactPerson}</span>
-                           <span className="block text-[10px] text-slate-400 font-medium">{client.phone}</span>
-                         </div>
-                      </td>
-                      <td className="px-6 sm:px-8 py-5 text-right">
-                        <div className="flex items-center justify-end gap-1 sm:gap-2">
-                          <button 
-                            onClick={() => setParticularsClient(client)}
-                            className="p-2 sm:p-3 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all"
-                            title="Edit Client Info"
-                          >
-                            <Edit3 size={16} />
-                          </button>
-                          <button 
-                            onClick={() => setEditingClientId(client.id)}
-                            className="p-2 sm:p-3 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                            title="Reset Client Password"
-                          >
-                            <Key size={16} />
-                          </button>
+                      <td className="px-8 py-6 text-right pr-10">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button className="p-2.5 text-blue-600 hover:bg-blue-50 rounded-xl" onClick={() => { setEditingClientId(client.id); setNewPassword(''); }}><Key size={18} /></button>
+                          <button className="p-2.5 text-slate-400 hover:bg-slate-100 rounded-xl"><Edit3 size={18} /></button>
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 duration-300">
-          <div className="bg-white rounded-[2rem] sm:rounded-[2.5rem] border border-slate-200 shadow-sm p-6 sm:p-10 space-y-8">
-            <div className="flex items-center gap-4 pb-6 border-b border-slate-100">
-              <div className="p-3 sm:p-4 bg-blue-50 text-blue-600 rounded-2xl sm:rounded-3xl shrink-0">
-                <Building2 size={28} />
-              </div>
-              <div>
-                <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight uppercase tracking-widest text-sm">Business Identity</h3>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">Official data for legal documents</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6">
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Legal Name</label>
-                <div className="relative group">
-                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                  <input 
-                    type="text" 
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold text-slate-800"
-                    value={companyInfo.name}
-                    onChange={e => setCompanyInfo({...companyInfo, name: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Headquarters Address</label>
-                <div className="relative group">
-                  <MapPin className="absolute left-4 top-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                  <textarea 
-                    rows={2}
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold text-slate-800 resize-none"
-                    value={companyInfo.address}
-                    onChange={e => setCompanyInfo({...companyInfo, address: e.target.value})}
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Main Phone</label>
-                  <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      type="text" 
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold text-slate-800"
-                      value={companyInfo.phone}
-                      onChange={e => setCompanyInfo({...companyInfo, phone: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Digital Mailbox</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      type="email" 
-                      className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold text-slate-800"
-                      value={companyInfo.email}
-                      onChange={e => setCompanyInfo({...companyInfo, email: e.target.value})}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-1.5 pt-4">
-                 <button 
-                  className={`w-full flex items-center justify-center gap-3 py-4 font-black rounded-2xl transition-all shadow-xl uppercase tracking-[0.2em] text-xs ${
-                    saveSuccess ? 'bg-emerald-600 text-white shadow-emerald-100' : 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-200'
-                  }`}
-                  onClick={handleSaveCompanyInfo}
-                  disabled={isSavingInfo}
-                >
-                  {isSavingInfo ? <Loader2 className="animate-spin" size={18} /> : saveSuccess ? <Check size={18} /> : <Save size={18} />}
-                  {saveSuccess ? 'Records Saved' : 'Update Records'}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-8">
-            <div className="bg-[#25D366] rounded-[2rem] sm:rounded-[2.5rem] p-6 sm:p-10 text-white shadow-xl shadow-emerald-100 relative overflow-hidden">
-               <div className="relative z-10">
-                 <div className="flex items-center gap-3 mb-6">
-                    <div className="p-3 bg-white/20 rounded-2xl backdrop-blur-md">
-                      <MessageSquare size={24} />
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-black uppercase tracking-widest text-sm">WhatsApp Hub</h3>
-                      <p className="text-[10px] text-emerald-100 font-bold uppercase tracking-widest">Team Comms Control</p>
-                    </div>
-                 </div>
-
-                 <div className="space-y-6">
-                    <div className="space-y-2">
-                       <label className="text-[10px] font-black text-emerald-100 uppercase tracking-widest block ml-1">Team Group Invite Link</label>
-                       <div className="flex gap-2">
-                         <div className="flex-1 relative">
-                            <Share2 className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-200" size={16} />
-                            <input 
-                              type="text" 
-                              placeholder="https://chat.whatsapp.com/..."
-                              className="w-full pl-11 pr-4 py-3 bg-white/10 border-2 border-white/20 rounded-2xl focus:border-white transition-all outline-none text-xs font-bold text-white placeholder:text-emerald-200"
-                              value={companyInfo.whatsappGroupLink}
-                              onChange={e => setCompanyInfo({...companyInfo, whatsappGroupLink: e.target.value})}
-                            />
-                         </div>
-                         <button 
-                          onClick={handleCopyLink}
-                          className="px-4 bg-white text-emerald-600 rounded-2xl font-black hover:bg-emerald-50 transition-all shadow-lg"
-                         >
-                           {copied ? <CheckCircle size={20} /> : <Copy size={20} />}
-                         </button>
-                       </div>
-                    </div>
-
-                    <button 
-                      onClick={() => window.open(`https://wa.me/${companyInfo.whatsapp}`, '_blank')}
-                      className="w-full py-4 bg-white text-emerald-600 font-black rounded-2xl hover:bg-emerald-50 transition-all shadow-xl shadow-emerald-900/20 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-2"
-                    >
-                      <ExternalLink size={18} />
-                      Open Admin Chat
-                    </button>
-                 </div>
-               </div>
-               <MessageSquare className="absolute -bottom-10 -right-10 text-white/5" size={200} />
-            </div>
+             </table>
           </div>
         </div>
       )}
 
-      {/* Modals - Common Handling */}
-      {showAddTech && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-[2rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
-            <div className="p-6 sm:p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Provision Staff</h3>
-                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">Setup authentication for field staff</p>
+      {activeTab === 'COMPANY' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 animate-in slide-in-from-right-4">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+            <div className="flex items-center gap-4 pb-8 border-b border-slate-100">
+              <div className="p-4 bg-blue-600 text-white rounded-3xl">
+                <ShieldCheck size={32} />
               </div>
-              <button onClick={() => setShowAddTech(false)} className="p-2 sm:p-3 bg-white text-slate-400 hover:text-slate-600 rounded-2xl shadow-sm transition-all">
-                <X size={24} />
+              <div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-widest leading-none">Identity Core</h3>
+                <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-2">Central Business Metadata</p>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Company Name</label>
+                <input 
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black"
+                  value={companyInfo.name}
+                  onChange={e => setCompanyInfo({...companyInfo, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Headquarters Address</label>
+                <textarea 
+                  rows={2}
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold resize-none"
+                  value={companyInfo.address}
+                  onChange={e => setCompanyInfo({...companyInfo, address: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Main Phone</label>
+                  <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.phone} onChange={e => setCompanyInfo({...companyInfo, phone: e.target.value})} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Support Email</label>
+                  <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.email} onChange={e => setCompanyInfo({...companyInfo, email: e.target.value})} />
+                </div>
+              </div>
+              <button 
+                onClick={handleSaveCompanyInfo}
+                disabled={isSavingInfo}
+                className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all ${
+                  saveSuccess ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'
+                }`}
+              >
+                {isSavingInfo ? <Loader2 className="animate-spin" /> : saveSuccess ? <Check /> : <Save />}
+                {saveSuccess ? 'Configuration Saved' : 'Commit Changes'}
               </button>
             </div>
-            <form onSubmit={handleAddTech} className="p-6 sm:p-10 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                <div className="col-span-1 md:col-span-2">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Full Legal Name</label>
-                  <div className="relative group">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
+          </div>
+
+          <div className="bg-[#25D366] p-10 rounded-[3rem] text-white shadow-xl shadow-emerald-100/50 relative overflow-hidden group">
+            <div className="relative z-10">
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-4 bg-white/20 rounded-3xl backdrop-blur-md">
+                  <MessageSquare size={32} />
+                </div>
+                <h3 className="text-xl font-black uppercase tracking-widest">Field Liaison Hub</h3>
+              </div>
+              <div className="space-y-8">
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-emerald-100 uppercase tracking-widest ml-1">Group Invite Link (Field Unit)</label>
+                  <div className="flex gap-2">
                     <input 
-                      required
-                      type="text" 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl sm:rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                      value={newTech.name}
-                      onChange={e => setNewTech({...newTech, name: e.target.value})}
-                      placeholder="Michael Tan"
+                      className="flex-1 bg-white/10 border-2 border-white/20 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:border-white transition-all placeholder:text-emerald-100/50"
+                      value={companyInfo.whatsappGroupLink}
+                      placeholder="https://chat.whatsapp.com/..."
+                      onChange={e => setCompanyInfo({...companyInfo, whatsappGroupLink: e.target.value})}
                     />
+                    <button onClick={handleCopyLink} className="p-4 bg-white text-emerald-600 rounded-2xl shadow-lg hover:bg-emerald-50 transition-all">
+                      {copied ? <Check /> : <Copy />}
+                    </button>
                   </div>
                 </div>
+                <p className="text-xs text-emerald-50 leading-relaxed font-medium">
+                  Field staff receive this link when you trigger an invite from the directory. Ensure the group is monitored by operations.
+                </p>
+              </div>
+            </div>
+            <Activity className="absolute -bottom-10 -right-10 text-white/5 group-hover:scale-110 transition-transform duration-[3000ms]" size={240} />
+          </div>
+        </div>
+      )}
 
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Mobile Line</label>
-                  <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      required
-                      type="text" 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                      value={newTech.phone}
-                      onChange={e => setNewTech({...newTech, phone: e.target.value})}
-                      placeholder="8045 XXXX"
-                    />
-                  </div>
+      {/* Unified Manage Technician Modal */}
+      {showManageTechModal && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white w-full max-w-xl rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
+            <div className="p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-4">
+                <div className="p-4 bg-blue-600 text-white rounded-3xl shadow-lg shadow-blue-100">
+                  <UserCog size={28} />
                 </div>
-
                 <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">Specialty</label>
-                  <select 
-                    className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                    value={newTech.specialty}
-                    onChange={e => setNewTech({...newTech, specialty: e.target.value as JobScope})}
-                  >
-                    {JOB_SCOPES.map(scope => (
-                      <option key={scope} value={scope}>{scope}</option>
-                    ))}
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-none">{editingTech ? 'Manage Profile' : 'Provision Staff'}</h3>
+                  <p className="text-sm text-slate-500 font-medium mt-2">Field Professional Authentication</p>
+                </div>
+              </div>
+              <button onClick={() => setShowManageTechModal(false)} className="p-4 bg-white text-slate-400 hover:text-slate-600 rounded-[1.5rem] shadow-sm transition-all">
+                <X size={28} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveTech} className="p-10 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="col-span-2 space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name</label>
+                  <input required className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.name} onChange={e => setTechForm({...techForm, name: e.target.value})} placeholder="e.g. Michael Tan" />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
+                  <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.phone} onChange={e => setTechForm({...techForm, phone: e.target.value})} placeholder="+65 XXXX XXXX" />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SCT Specialty</label>
+                  <select className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.specialty} onChange={e => setTechForm({...techForm, specialty: e.target.value as JobScope})}>
+                    {JOB_SCOPES.map(scope => <option key={scope} value={scope}>{scope}</option>)}
                   </select>
                 </div>
 
-                <div className="col-span-1 md:col-span-2 pt-4 border-t border-slate-100">
-                  <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Staff Email</label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                        <input 
-                          required
-                          type="email" 
-                          className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                          value={newTech.email}
-                          onChange={e => setNewTech({...newTech, email: e.target.value})}
-                          placeholder="staff@sct.com"
-                        />
-                      </div>
-                    </div>
+                <div className="col-span-2 pt-6 border-t border-slate-100 space-y-6">
+                  <div className="flex items-center gap-3">
+                    <ShieldAlert size={16} className="text-amber-500" />
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authentication Credentials</span>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID)</label>
+                    <input required type="email" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.email} onChange={e => setTechForm({...techForm, email: e.target.value})} placeholder="staff@smartcitytechnologies.com.sg" />
+                  </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Initial Password</label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                        <input 
-                          required
-                          type={showPassword ? "text" : "password"}
-                          className="w-full pl-12 pr-12 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                          value={newTech.password}
-                          onChange={e => setNewTech({...newTech, password: e.target.value})}
-                        />
-                        <button 
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400"
-                        >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                        </button>
-                      </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secure Password</label>
+                    <div className="relative">
+                      <input required type={showPassword ? "text" : "password"} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.password} onChange={e => setTechForm({...techForm, password: e.target.value})} placeholder="Minimum 8 characters" />
+                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300">
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
                     </div>
                   </div>
                 </div>
               </div>
-              <div className="pt-6">
-                <button type="submit" className="w-full py-4 bg-blue-600 text-white font-black rounded-xl sm:rounded-2xl hover:bg-blue-700 transition-all shadow-xl uppercase tracking-widest text-xs">
-                  Create Staff Account
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {(particularsTech || particularsClient) && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white w-full max-w-lg rounded-[2rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 sm:p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Edit Profile</h3>
-                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">Update primary record for {particularsTech?.name || particularsClient?.name}</p>
-              </div>
-              <button onClick={() => { setParticularsTech(null); setParticularsClient(null); }} className="p-2 bg-white text-slate-400 rounded-xl shadow-sm">
-                <X size={24} />
-              </button>
-            </div>
-            <form onSubmit={handleSaveParticulars} className="p-6 sm:p-10 space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Display Name</label>
-                  <div className="relative group">
-                    <Users className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      required
-                      type="text" 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                      value={particularsTech?.name || particularsClient?.name || ''}
-                      onChange={e => particularsTech 
-                        ? setParticularsTech({...particularsTech, name: e.target.value})
-                        : particularsClient && setParticularsClient({...particularsClient, name: e.target.value})
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Phone</label>
-                  <div className="relative group">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      required
-                      type="text" 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                      value={particularsTech?.phone || particularsClient?.phone || ''}
-                      onChange={e => particularsTech
-                        ? setParticularsTech({...particularsTech, phone: e.target.value})
-                        : particularsClient && setParticularsClient({...particularsClient, phone: e.target.value})
-                      }
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Account Email</label>
-                  <div className="relative group">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                    <input 
-                      required
-                      type="email" 
-                      className="w-full pl-12 pr-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                      value={particularsTech?.email || particularsClient?.email || ''}
-                      onChange={e => particularsTech
-                        ? setParticularsTech({...particularsTech, email: e.target.value})
-                        : particularsClient && setParticularsClient({...particularsClient, email: e.target.value})
-                      }
-                    />
-                  </div>
-                </div>
-
-                {particularsTech && (
-                  <div className="space-y-1.5">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Technical Specialty</label>
-                    <select 
-                      className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                      value={particularsTech.specialty}
-                      onChange={e => setParticularsTech({...particularsTech, specialty: e.target.value as JobScope})}
-                    >
-                      {JOB_SCOPES.map(scope => (
-                        <option key={scope} value={scope}>{scope}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-              </div>
-              <button type="submit" className="w-full py-4 bg-slate-900 text-white font-black rounded-xl sm:rounded-2xl hover:bg-slate-800 transition-all shadow-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2">
-                <Save size={18} /> Commit Changes
+              
+              <button type="submit" className="w-full py-6 bg-slate-900 text-white font-black rounded-3xl hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3">
+                <Save size={18} /> {editingTech ? 'Commit Profile Updates' : 'Provision Staff Account'}
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {(editingTechId || editingClientId) && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto">
-          <div className="bg-white w-full max-w-md rounded-[2rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-6 sm:p-10 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+      {/* Client Password Reset Modal */}
+      {editingClientId && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-10 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
               <div>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">Security Override</h3>
-                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-1">Reset system password</p>
+                <h3 className="text-xl font-black text-slate-900 tracking-tight">Security Override</h3>
+                <p className="text-xs text-slate-500 font-medium">Reset client portal password</p>
               </div>
-              <button onClick={() => { setEditingTechId(null); setEditingClientId(null); }} className="p-2 bg-white text-slate-400 rounded-xl">
-                <X size={24} />
-              </button>
+              <button onClick={() => setEditingClientId(null)} className="text-slate-400"><X /></button>
             </div>
-            <form onSubmit={handleResetPassword} className="p-6 sm:p-10 space-y-6">
-              <div className="space-y-1.5">
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Secure Password</label>
-                <div className="relative group">
-                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-blue-500 transition-colors" size={18} />
-                  <input 
-                    required
-                    type="text" 
-                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border-2 border-slate-50 rounded-xl focus:border-blue-500 transition-all outline-none text-sm font-bold"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Minimum 8 chars"
-                  />
-                </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              setClients(prev => prev.map(c => c.id === editingClientId ? { ...c, password: newPassword } : c));
+              alert("Client password updated.");
+              setEditingClientId(null);
+            }} className="p-10 space-y-8">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Portal Password</label>
+                <input required className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 chars" />
               </div>
-              <button type="submit" className="w-full py-4 bg-blue-600 text-white font-black rounded-xl sm:rounded-2xl hover:bg-blue-700 transition-all shadow-xl uppercase tracking-widest text-xs flex items-center justify-center gap-2">
-                <ShieldCheck size={18} /> Update Password
-              </button>
+              <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-[10px]">Update Client Credentials</button>
             </form>
           </div>
         </div>

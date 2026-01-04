@@ -1,8 +1,0 @@
-{
-  "name": "sctwms",
-  "compatibility_date": "2026-01-03",
-  "assets": {
-    "directory": "./dist"
-  },
-  "usage_model": "bundled"
-}
