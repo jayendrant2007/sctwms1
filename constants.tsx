@@ -9,7 +9,8 @@ export const COMPANY_INFO: CompanyInfo = {
   email: "services@smartcitytechnologies.com.sg",
   web: "smartcitytechnologies.com.sg",
   whatsapp: "80458281",
-  whatsappGroupLink: "https://chat.whatsapp.com/example-sct-group-link"
+  whatsappGroupLink: "https://chat.whatsapp.com/example-sct-group-link",
+  motto: "ENTERPRISE RESOURCE HUB"
 };
 
 export const JOB_SCOPES: JobScope[] = [

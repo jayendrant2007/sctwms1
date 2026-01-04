@@ -171,6 +171,9 @@ export interface CompanyInfo {
   web: string;
   whatsapp: string;
   whatsappGroupLink?: string;
+  logoUrl?: string;
+  signatureUrl?: string;
+  motto?: string;
 }
 
 export interface AuthUser {

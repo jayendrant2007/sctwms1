@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useRef } from 'react';
 import { Technician, CompanyInfo, JobScope, UserRole, Client } from '../types';
 import { JOB_SCOPES } from '../constants';
 import { 
@@ -32,7 +33,11 @@ import {
   Briefcase,
   UserPlus,
   ShieldAlert,
-  Search
+  Search,
+  Upload,
+  Image as ImageIcon,
+  PenTool,
+  Quote
 } from 'lucide-react';
 
 interface AdminProps {
@@ -49,13 +54,15 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
   const [showManageTechModal, setShowManageTechModal] = useState(false);
   const [editingTech, setEditingTech] = useState<Technician | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [particularsClient, setParticularsClient] = useState<Client | null>(null);
   const [editingClientId, setEditingClientId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState('');
   
   const [isSavingInfo, setIsSavingInfo] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const sigInputRef = useRef<HTMLInputElement>(null);
 
   // Form state for adding/editing technicians
   const [techForm, setTechForm] = useState<Partial<Technician>>({
@@ -66,6 +73,22 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
     specialty: JobScope.CCTV,
     status: 'Available'
   });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'signature') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      if (type === 'logo') {
+        setCompanyInfo(prev => ({ ...prev, logoUrl: base64String }));
+      } else {
+        setCompanyInfo(prev => ({ ...prev, signatureUrl: base64String }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const openAddTech = () => {
     setEditingTech(null);
@@ -94,11 +117,8 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
     }
 
     if (editingTech) {
-      // Update existing
       setTechnicians(prev => prev.map(t => t.id === editingTech.id ? { ...t, ...techForm } as Technician : t));
-      alert(`Technician ${techForm.name} updated successfully.`);
     } else {
-      // Create new
       const newStaff: Technician = {
         id: `T${Date.now()}`,
         name: techForm.name!,
@@ -110,9 +130,7 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
         role: UserRole.TECHNICIAN
       };
       setTechnicians(prev => [...prev, newStaff]);
-      alert(`New technician ${techForm.name} provisioned.`);
     }
-
     setShowManageTechModal(false);
   };
 
@@ -160,30 +178,9 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
           <p className="text-slate-500 font-medium">Manage personnel, clients, and corporate infrastructure</p>
         </div>
         <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm shrink-0">
-          <button 
-            onClick={() => setActiveTab('TECH')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'TECH' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <Users size={16} /> Staff Directory
-          </button>
-          <button 
-            onClick={() => setActiveTab('CLIENT')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'CLIENT' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <Building2 size={16} /> Clients
-          </button>
-          <button 
-            onClick={() => setActiveTab('COMPANY')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${
-              activeTab === 'COMPANY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <ShieldCheck size={16} /> Business Profile
-          </button>
+          <button onClick={() => setActiveTab('TECH')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'TECH' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'}`}><Users size={16} /> Staff Directory</button>
+          <button onClick={() => setActiveTab('CLIENT')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'CLIENT' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'}`}><Building2 size={16} /> Clients</button>
+          <button onClick={() => setActiveTab('COMPANY')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-bold transition-all ${activeTab === 'COMPANY' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-600 hover:bg-slate-50'}`}><ShieldCheck size={16} /> Business Profile</button>
         </div>
       </header>
 
@@ -194,14 +191,8 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Active Technician Node</h3>
               <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Authorized field engineers</p>
             </div>
-            <button 
-              onClick={openAddTech}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-100"
-            >
-              <UserPlus size={18} /> Provision New Account
-            </button>
+            <button onClick={openAddTech} className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all font-black text-xs uppercase tracking-widest shadow-xl shadow-blue-100"><UserPlus size={18} /> Provision New Account</button>
           </div>
-
           <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -218,9 +209,7 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
                     <tr key={tech.id} className="hover:bg-slate-50/50 group transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all">
-                            {tech.name.charAt(0)}
-                          </div>
+                          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-black text-xl shadow-inner group-hover:bg-blue-600 group-hover:text-white transition-all">{tech.name.charAt(0)}</div>
                           <div>
                             <p className="text-sm font-black text-slate-900 leading-tight">{tech.name}</p>
                             <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter mt-1">{tech.specialty}</p>
@@ -235,20 +224,9 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
                       </td>
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${
-                            tech.status === 'Available' ? 'bg-emerald-500 animate-pulse' : 
-                            tech.status === 'On Site' ? 'bg-blue-500' : 'bg-amber-500'
-                          }`} />
+                          <div className={`w-2.5 h-2.5 rounded-full shadow-sm ${tech.status === 'Available' ? 'bg-emerald-500 animate-pulse' : tech.status === 'On Site' ? 'bg-blue-500' : 'bg-amber-500'}`} />
                           <div className="relative">
-                            <select 
-                              value={tech.status}
-                              onChange={(e) => updateTechStatus(tech.id, e.target.value as Technician['status'])}
-                              className={`appearance-none text-[10px] font-black uppercase tracking-widest pl-3 pr-8 py-1.5 rounded-xl border-2 outline-none transition-all cursor-pointer ${
-                                tech.status === 'Available' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                                tech.status === 'On Site' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                'bg-amber-50 text-amber-700 border-amber-100'
-                              }`}
-                            >
+                            <select value={tech.status} onChange={(e) => updateTechStatus(tech.id, e.target.value as Technician['status'])} className={`appearance-none text-[10px] font-black uppercase tracking-widest pl-3 pr-8 py-1.5 rounded-xl border-2 outline-none transition-all cursor-pointer ${tech.status === 'Available' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : tech.status === 'On Site' ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                               <option value="Available">Available</option>
                               <option value="On Site">On Site</option>
                               <option value="Away">Away</option>
@@ -296,9 +274,7 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
                     <tr key={client.id} className="hover:bg-slate-50/50 group transition-colors">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xl">
-                            {client.name.charAt(0)}
-                          </div>
+                          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black text-xl">{client.name.charAt(0)}</div>
                           <div>
                             <p className="text-sm font-black text-slate-900 leading-tight">{client.name}</p>
                             <p className="text-[9px] text-slate-400 font-black uppercase tracking-tighter mt-1">ID: {client.id}</p>
@@ -338,43 +314,73 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
             </div>
             
             <div className="space-y-6">
-              <div className="space-y-2">
+              {/* Logo Upload Section */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Corporate Logo</label>
+                <div className="flex items-center gap-6">
+                  <div className="w-24 h-24 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden group/logo relative">
+                    {companyInfo.logoUrl ? (
+                      <>
+                        <img src={companyInfo.logoUrl} className="w-full h-full object-contain p-2" alt="Logo" />
+                        <button onClick={() => setCompanyInfo(p => ({...p, logoUrl: ''}))} className="absolute inset-0 bg-red-600/80 text-white opacity-0 group-hover/logo:opacity-100 flex items-center justify-center transition-all"><Trash2 size={20} /></button>
+                      </>
+                    ) : (
+                      <ImageIcon className="text-slate-200" size={32} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'logo')} />
+                    <button onClick={() => logoInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase transition-all"><Upload size={14} /> Upload Logo</button>
+                    <p className="text-[9px] text-slate-400 mt-2 italic">PNG or SVG with transparency recommended.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Motto Section */}
+              <div className="space-y-2 pt-4 border-t border-slate-50">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Corporate Motto / Tagline</label>
+                <div className="relative">
+                  <Quote className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
+                  <input className="w-full pl-12 pr-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black uppercase tracking-widest" value={companyInfo.motto} placeholder="ENTERPRISE RESOURCE HUB" onChange={e => setCompanyInfo({...companyInfo, motto: e.target.value.toUpperCase()})} />
+                </div>
+                <p className="text-[9px] text-slate-400 mt-1 ml-1 italic">This text appears beneath the logo on the login portal.</p>
+              </div>
+
+              {/* Signature Upload Section */}
+              <div className="space-y-4 pt-4 border-t border-slate-50">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Authorized Digital Signature</label>
+                <div className="flex items-center gap-6">
+                  <div className="w-40 h-20 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden group/sig relative">
+                    {companyInfo.signatureUrl ? (
+                      <>
+                        <img src={companyInfo.signatureUrl} className="w-full h-full object-contain p-2" alt="Signature" />
+                        <button onClick={() => setCompanyInfo(p => ({...p, signatureUrl: ''}))} className="absolute inset-0 bg-red-600/80 text-white opacity-0 group-hover/sig:opacity-100 flex items-center justify-center transition-all"><Trash2 size={20} /></button>
+                      </>
+                    ) : (
+                      <PenTool className="text-slate-200" size={32} />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <input ref={sigInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileUpload(e, 'signature')} />
+                    <button onClick={() => sigInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 text-slate-600 hover:bg-blue-600 hover:text-white rounded-xl text-[10px] font-black uppercase transition-all"><Upload size={14} /> Upload Signature</button>
+                    <p className="text-[9px] text-slate-400 mt-2 italic">Scanned signature for digital invoicing.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-4 border-t border-slate-50">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legal Company Name</label>
-                <input 
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black"
-                  value={companyInfo.name}
-                  onChange={e => setCompanyInfo({...companyInfo, name: e.target.value})}
-                />
+                <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.name} onChange={e => setCompanyInfo({...companyInfo, name: e.target.value})} />
               </div>
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Headquarters Address</label>
-                <textarea 
-                  rows={2}
-                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold resize-none"
-                  value={companyInfo.address}
-                  onChange={e => setCompanyInfo({...companyInfo, address: e.target.value})}
-                />
+                <textarea rows={2} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-bold resize-none" value={companyInfo.address} onChange={e => setCompanyInfo({...companyInfo, address: e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Main Phone</label>
-                  <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.phone} onChange={e => setCompanyInfo({...companyInfo, phone: e.target.value})} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Support Email</label>
-                  <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.email} onChange={e => setCompanyInfo({...companyInfo, email: e.target.value})} />
-                </div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Main Phone</label><input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.phone} onChange={e => setCompanyInfo({...companyInfo, phone: e.target.value})} /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Support Email</label><input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={companyInfo.email} onChange={e => setCompanyInfo({...companyInfo, email: e.target.value})} /></div>
               </div>
-              <button 
-                onClick={handleSaveCompanyInfo}
-                disabled={isSavingInfo}
-                className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all ${
-                  saveSuccess ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'
-                }`}
-              >
-                {isSavingInfo ? <Loader2 className="animate-spin" /> : saveSuccess ? <Check /> : <Save />}
-                {saveSuccess ? 'Configuration Saved' : 'Commit Changes'}
-              </button>
+              <button onClick={handleSaveCompanyInfo} disabled={isSavingInfo} className={`w-full py-5 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 transition-all ${saveSuccess ? 'bg-emerald-600 text-white' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>{isSavingInfo ? <Loader2 className="animate-spin" /> : saveSuccess ? <Check /> : <Save />}{saveSuccess ? 'Configuration Saved' : 'Commit Changes'}</button>
             </div>
           </div>
 
@@ -390,20 +396,11 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-emerald-100 uppercase tracking-widest ml-1">Group Invite Link (Field Unit)</label>
                   <div className="flex gap-2">
-                    <input 
-                      className="flex-1 bg-white/10 border-2 border-white/20 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:border-white transition-all placeholder:text-emerald-100/50"
-                      value={companyInfo.whatsappGroupLink}
-                      placeholder="https://chat.whatsapp.com/..."
-                      onChange={e => setCompanyInfo({...companyInfo, whatsappGroupLink: e.target.value})}
-                    />
-                    <button onClick={handleCopyLink} className="p-4 bg-white text-emerald-600 rounded-2xl shadow-lg hover:bg-emerald-50 transition-all">
-                      {copied ? <Check /> : <Copy />}
-                    </button>
+                    <input className="flex-1 bg-white/10 border-2 border-white/20 rounded-2xl px-6 py-4 text-xs font-bold outline-none focus:border-white transition-all placeholder:text-emerald-100/50" value={companyInfo.whatsappGroupLink} placeholder="https://chat.whatsapp.com/..." onChange={e => setCompanyInfo({...companyInfo, whatsappGroupLink: e.target.value})} />
+                    <button onClick={handleCopyLink} className="p-4 bg-white text-emerald-600 rounded-2xl shadow-lg hover:bg-emerald-50 transition-all">{copied ? <Check /> : <Copy />}</button>
                   </div>
                 </div>
-                <p className="text-xs text-emerald-50 leading-relaxed font-medium">
-                  Field staff receive this link when you trigger an invite from the directory. Ensure the group is monitored by operations.
-                </p>
+                <p className="text-xs text-emerald-50 leading-relaxed font-medium">Field staff receive this link when you trigger an invite from the directory. Ensure the group is monitored by operations.</p>
               </div>
             </div>
             <Activity className="absolute -bottom-10 -right-10 text-white/5 group-hover:scale-110 transition-transform duration-[3000ms]" size={240} />
@@ -411,7 +408,6 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
         </div>
       )}
 
-      {/* Unified Manage Technician Modal */}
       {showManageTechModal && (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white w-full max-w-xl rounded-[3.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-8">
@@ -425,84 +421,26 @@ const Admin: React.FC<AdminProps> = ({ technicians, setTechnicians, clients, set
                   <p className="text-sm text-slate-500 font-medium mt-2">Field Professional Authentication</p>
                 </div>
               </div>
-              <button onClick={() => setShowManageTechModal(false)} className="p-4 bg-white text-slate-400 hover:text-slate-600 rounded-[1.5rem] shadow-sm transition-all">
-                <X size={28} />
-              </button>
+              <button onClick={() => setShowManageTechModal(false)} className="p-4 bg-white text-slate-400 hover:text-slate-600 rounded-[1.5rem] shadow-sm transition-all"><X size={28} /></button>
             </div>
-            
             <form onSubmit={handleSaveTech} className="p-10 space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="col-span-2 space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name</label>
-                  <input required className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.name} onChange={e => setTechForm({...techForm, name: e.target.value})} placeholder="e.g. Michael Tan" />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label>
-                  <input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.phone} onChange={e => setTechForm({...techForm, phone: e.target.value})} placeholder="+65 XXXX XXXX" />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SCT Specialty</label>
-                  <select className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.specialty} onChange={e => setTechForm({...techForm, specialty: e.target.value as JobScope})}>
-                    {JOB_SCOPES.map(scope => <option key={scope} value={scope}>{scope}</option>)}
-                  </select>
-                </div>
-
-                <div className="col-span-2 pt-6 border-t border-slate-100 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <ShieldAlert size={16} className="text-amber-500" />
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authentication Credentials</span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID)</label>
-                    <input required type="email" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.email} onChange={e => setTechForm({...techForm, email: e.target.value})} placeholder="staff@smartcitytechnologies.com.sg" />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secure Password</label>
-                    <div className="relative">
-                      <input required type={showPassword ? "text" : "password"} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.password} onChange={e => setTechForm({...techForm, password: e.target.value})} placeholder="Minimum 8 characters" />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300">
-                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <div className="col-span-2 space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Legal Name</label><input required className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.name} onChange={e => setTechForm({...techForm, name: e.target.value})} placeholder="e.g. Michael Tan" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mobile Contact</label><input className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.phone} onChange={e => setTechForm({...techForm, phone: e.target.value})} placeholder="+65 XXXX XXXX" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">SCT Specialty</label><select className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.specialty} onChange={e => setTechForm({...techForm, specialty: e.target.value as JobScope})}>{JOB_SCOPES.map(scope => <option key={scope} value={scope}>{scope}</option>)}</select></div>
+                <div className="col-span-2 pt-6 border-t border-slate-100 space-y-6"><div className="flex items-center gap-3"><ShieldAlert size={16} className="text-amber-500" /><span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Authentication Credentials</span></div><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email (Login ID)</label><input required type="email" className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.email} onChange={e => setTechForm({...techForm, email: e.target.value})} placeholder="staff@smartcitytechnologies.com.sg" /></div><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Secure Password</label><div className="relative"><input required type={showPassword ? "text" : "password"} className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={techForm.password} onChange={e => setTechForm({...techForm, password: e.target.value})} placeholder="Minimum 8 characters" /><button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-300">{showPassword ? <EyeOff size={20} /> : <Eye size={20} />}</button></div></div></div>
               </div>
-              
-              <button type="submit" className="w-full py-6 bg-slate-900 text-white font-black rounded-3xl hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3">
-                <Save size={18} /> {editingTech ? 'Commit Profile Updates' : 'Provision Staff Account'}
-              </button>
+              <button type="submit" className="w-full py-6 bg-slate-900 text-white font-black rounded-3xl hover:bg-slate-800 transition-all shadow-2xl shadow-slate-200 uppercase tracking-[0.2em] text-xs flex items-center justify-center gap-3"><Save size={18} /> {editingTech ? 'Commit Profile Updates' : 'Provision Staff Account'}</button>
             </form>
           </div>
         </div>
       )}
 
-      {/* Client Password Reset Modal */}
       {editingClientId && (
         <div className="fixed inset-0 z-[100] bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-10 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">Security Override</h3>
-                <p className="text-xs text-slate-500 font-medium">Reset client portal password</p>
-              </div>
-              <button onClick={() => setEditingClientId(null)} className="text-slate-400"><X /></button>
-            </div>
-            <form onSubmit={(e) => {
-              e.preventDefault();
-              setClients(prev => prev.map(c => c.id === editingClientId ? { ...c, password: newPassword } : c));
-              alert("Client password updated.");
-              setEditingClientId(null);
-            }} className="p-10 space-y-8">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Portal Password</label>
-                <input required className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 chars" />
-              </div>
-              <button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-[10px]">Update Client Credentials</button>
-            </form>
+            <div className="p-10 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center"><div><h3 className="text-xl font-black text-slate-900 tracking-tight">Security Override</h3><p className="text-xs text-slate-500 font-medium">Reset client portal password</p></div><button onClick={() => setEditingClientId(null)} className="text-slate-400"><X /></button></div>
+            <form onSubmit={(e) => { e.preventDefault(); setClients(prev => prev.map(c => c.id === editingClientId ? { ...c, password: newPassword } : c)); alert("Client password updated."); setEditingClientId(null); }} className="p-10 space-y-8"><div className="space-y-2"><label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">New Portal Password</label><input required className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-50 rounded-2xl focus:border-blue-500 transition-all outline-none text-sm font-black" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="Minimum 8 chars" /></div><button type="submit" className="w-full py-5 bg-blue-600 text-white font-black rounded-2xl hover:bg-blue-700 transition-all shadow-xl shadow-blue-100 uppercase tracking-widest text-[10px]">Update Client Credentials</button></form>
           </div>
         </div>
       )}

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { 
@@ -229,6 +230,7 @@ const App: React.FC = () => {
                 clients={clients} 
                 adminCredentials={adminCredentials}
                 onResetPassword={handleResetPasswordByEmail}
+                companyInfo={companyInfo}
               />
               <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50">
                 <Link to="/support" className="flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-md border border-white/20 text-white rounded-full hover:bg-white/20 transition-all font-bold text-sm shadow-2xl">
@@ -254,10 +256,14 @@ const App: React.FC = () => {
               >
                 <div className="flex flex-col h-full">
                   <div className="p-6 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-600 p-2 rounded-lg">
-                        <ShieldCheck className="text-white" size={24} />
-                      </div>
+                    <div className="flex items-center gap-4">
+                      {companyInfo.logoUrl ? (
+                         <img src={companyInfo.logoUrl} className="h-8 w-auto object-contain" alt="Logo" />
+                      ) : (
+                        <div className="bg-blue-600 p-2 rounded-lg">
+                          <ShieldCheck className="text-white" size={24} />
+                        </div>
+                      )}
                       <h1 className="text-xl font-black text-slate-900 tracking-tight">SCTWMS</h1>
                     </div>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-slate-600">
@@ -364,7 +370,7 @@ const App: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <Route path="/" element={<Dashboard workOrders={workOrders} reports={serviceReports} invoices={invoices} technicians={technicians} authUser={authUser} />} />
+                        <Route path="/" element={<Dashboard workOrders={workOrders} reports={serviceReports} invoices={invoices} technicians={technicians} authUser={authUser} companyInfo={companyInfo} />} />
                         <Route path="/work-orders" element={<WorkOrders workOrders={workOrders} setWorkOrders={setWorkOrders} setServiceReports={setServiceReports} technicians={technicians} setTechnicians={setTechnicians} clients={clients} authUser={authUser} />} />
                         <Route path="/service-reports" element={<ServiceReports reports={serviceReports} setReports={setServiceReports} invoices={invoices} setInvoices={setInvoices} workOrders={workOrders} setWorkOrders={setWorkOrders} technicians={technicians} setTechnicians={setTechnicians} companyInfo={companyInfo} />} />
                         <Route path="/handover" element={<SiteHandoverPage handovers={handovers} setHandovers={setHandovers} workOrders={workOrders} setWorkOrders={setWorkOrders} companyInfo={companyInfo} />} />
